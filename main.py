@@ -8,10 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
-# Carrega a base histórica
+# Carrega a base histórica (agora na raiz)
 @st.cache_data(ttl=3600)
 def load_historico():
-    df = pd.read_csv("data/historico_brasileirao.csv", encoding="latin1")
+    df = pd.read_csv("historico_brasileirao.csv", encoding="latin1")
     df["Date"] = pd.to_datetime(df["Date"], format="%d/%m/%Y", errors="coerce")
     df = df.dropna(subset=["Date", "Home", "Away", "HG", "AG"]).reset_index(drop=True)
     return df
@@ -50,7 +50,7 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
             st.error("Time não encontrado – tenta Flamengo RJ, Palmeiras, Corinthians...")
             st.stop()
 
-        # H2H da planilha (CORRIGIDO 100%)
+        # H2H da planilha
         h2h = df_hist[
             ((df_hist["Home"].str.contains(casa, case=False, na=False)) & (df_hist["Away"].str.contains(fora, case=False, na=False))) |
             ((df_hist["Away"].str.contains(casa, case=False, na=False)) & (df_hist["Home"].str.contains(fora, case=False, na=False)))
