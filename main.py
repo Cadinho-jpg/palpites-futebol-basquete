@@ -114,16 +114,15 @@ if st.button("ANÁLISE TURBO", use_container_width=True):
             c4.metric("BTTS (ambos marcam)", f"{btts:.1f}%")
             c5.metric("Handicap Asiático sugerido", f"{casa} -0.5" if v_casa > v_fora + 2 else f"{fora} +0.5" if v_fora > v_casa + 2 else "Sem valor")
 
-            # Palpite final
+                        # Palpite final
             if v_casa >= v_fora + 3:
-                st.success(f"**GREEN GARANTIDO → {casa.upper()} -0.5 / -1.0**")
+                st.success(f"Vitória clara: {casa.upper()}")
             elif v_casa > v_fora:
-                st.info(f"**TENDÊNCIA FORTE → {casa.upper()}**")
+                st.info(f"Tendência: {casa.upper()}")
             elif v_fora > v_casa:
-                st.info(f"**TENDÊNCIA → {fora.upper()}**")
+                st.info(f"Tendência: {fora.upper()}")
             else:
-                st.warning("**JOGO ABERTO → OLHAR OVER 2.5 ou BTTS**")
-
+                st.warning("Jogo equilibrado")
         else:
             st.info("Poucos confrontos diretos. Análise baseada apenas na temporada atual.")
 
