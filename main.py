@@ -50,11 +50,11 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
             st.error("Time não encontrado – tenta Flamengo RJ, Palmeiras, Corinthians...")
             st.stop()
 
-        # H2H da planilha
-        H2H = df_hist[
+               # H2H da planilha
+        h2h = df_hist[
             ((df_hist["Home"].str.contains(casa, case=False, na=False)) & (df_hist["Away"].str.contains(fora, case=False, na=False))) |
             ((df_hist["Away"].str.contains(casa, case=False, na=False)) & (df_hist["Home"].str.contains(fora, case=False, na=False)))
-        ].tail(30)
+        ].tail(30).copy()
 
         col1, col2 = st.columns(2)
         with col1:
@@ -62,25 +62,25 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
         with col2:
             st.markdown(f"<div class='card'><img src='{t2['logo']}' width=140><h3>{t2['name']}</h3></div>", unsafe_allow_html=True)
 
-        if len(H2H) >= 3:
-            # Vitórias
-            v_casa = len(H2H[(H2H["HG"] > H2H["AG"]) & H2H["Home"].str.contains(casa, case=False)]) + \
-                     len(H2H[(H2H["AG"] > H2H["HG"]) & H2H["Away"].str.contains(casa, case=False)])
-            v_fora = len(H2H[(H2H["HG"] < H2H["AG"]) & H2H["Home"].str.contains(casa, case=False)]) + \
-                     len(H2H[(H2H["AG"] < H2H["HG"]) & H2H["Away"].str.contains(casa, case=False)])
-            empates = len(H2H[H2H["HG"] == H2H["AG"]])
+        if len(h2h) >= 3:
+            # Vitórias corretas
+            v_casa = len(h2h[(h2h["HG"] > h2h["AG"]) & h2h["Home"].str.contains(casa, case=False)]) + \
+                     len(h2h[(h2h["AG"] > h2h["HG"]) & h2h["Away"].str.contains(casa, case=False)])
+            v_fora = len(h2h[(h2h["HG"] < h2h["AG"]) & h2h["Home"].str.contains(casa, case=False)]) + \
+                     len(h2h[(h2h["AG"] < h2h["HG"]) & h2h["Away"].str.contains(casa, case=False)])
+            empates = len(h2h[h2h["HG"] == h2h["AG"]])
 
             c1, c2, c3 = st.columns(3)
             c1.metric(f"Vitórias {casa}", v_casa)
             c2.metric("Empates", empates)
             c3.metric(f"Vitórias {fora}", v_fora)
 
-            # Poisson – placar exato
-            lambda_casa = H2H[H2H["Home"].str.contains(casa, case=False)]["HG"].mean() or 1.8
-            lambda_fora = H2H[H2H["Away"].str.contains(fora, case=False)]["AG"].mean() or 1.1
+            # Poisson
+            lambda_casa = h2h[h2h["Home"].str.contains(casa, case=False)]["HG"].mean() or 1.8
+            lambda_fora = h2h[h2h["Away"].str.contains(fora, case=False)]["AG"].mean() or 1.1
 
             probs = {(g1,g2): round(poisson.pmf(g1, lambda_casa) * poisson.pmf(g2, lambda_fora)*100, 1)
-                     for g1 in range(0,7) for g2 in range(0,7)}
+                     for g1 in range(7) for g2 in range(7)}
             melhor_placar = max(probs, key=probs.get)
             prob = probs[melhor_placar]
 
@@ -94,8 +94,7 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
                 st.markdown("### PALPITE FINAL → **VITÓRIA DO VISITANTE**")
             else:
                 st.markdown("### PALPITE FINAL → **JOGO EQUILIBRADO**")
-
         else:
-            st.info("Poucos confrontos diretos – usando apenas dados ao vivo")
+            st.info("Poucos confrontos – usando dados ao vivo")
 
 st.caption("© Cadinho IA 2025 – O mais brabo do Brasil")
