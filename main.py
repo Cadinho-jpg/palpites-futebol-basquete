@@ -1,143 +1,98 @@
 import streamlit as st
+import pandas as pd
 import requests
-import os
 from datetime import datetime
+from scipy.stats import poisson
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
-# Configuração profissional
-st.set_page_config(page_title="Palpites IA do Cadinho", page_icon="⚽", layout="centered")
+@st.cache_data
+def load_historico():
+    df = pd.read_csv("data/historico_brasileirao.csv", encoding="latin1")
+    df["Date"] = pd.to_datetime(df["Date"], format="%d/%m/%Y", errors="coerce")
+    return df.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
 
-# Tema personalizado (muito mais bonito)
+df_hist = load_historico()
+
+st.set_page_config(page_title="Palpites IA do Cadinho", page_icon="Futebol", layout="centered")
+
 st.markdown("""
 <style>
-    .css-1d391kg {padding-top: 1rem; padding-bottom: 3rem;}
+    .big-title {font-size: 52px; font-weight: 900; text-align: center; 
+                background: linear-gradient(90deg, #00C9FF, #92FE9D);
+                -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
     .stButton>button {background: linear-gradient(90deg, #FF0066, #FF4D4D); color: white; 
-                      border-radius: 12px; height: 55px; font-weight: bold; font-size: 18px;}
-    .card {background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
-           margin: 10px 0; text-align: center;}
-    .logo-title {font-size: 42px; font-weight: 900; background: linear-gradient(90deg, #00C9FF, #92FE9D); 
-                 -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-    .metric-win {color: #00A86B; font-size: 28px; font-weight: bold;}
-    .metric-lose {color: #FF0066;}
+                      height: 60px; font-size: 22px; font-weight: bold; border-radius: 20px;}
 </style>
 """, unsafe_allow_html=True)
 
-# Título com estilo
-st.markdown("<h1 class='logo-title'>⚽ Palpites IA do Cadinho</h1>", unsafe_allow_html=True)
-st.markdown("<h3 style='text-align:center; color:#555;'>Análise profissional com histórico e contador de acertos</h3>", unsafe_allow_html=True)
+st.markdown("<h1 class='big-title'>PALPITES IA DO CADINHO</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; font-size:22px; color:#888;'>Base completa 2012-2025 + previsão de placar exato</p>", unsafe_allow_html=True)
 
-# Inicializa histórico
-if "historico" not in st.session_state:
-    st.session_state.historico = []
-if "acertos" not in st.session_state:
-    st.session_state.acertos = 0
-if "total" not in st.session_state:
-    st.session_state.total = 0
-
-col1, col2, col3 = st.columns([1,2,1])
+col1, col2 = st.columns(2)
+with col1:
+    time1 = st.text_input("Time da Casa", placeholder="Flamengo")
 with col2:
-    st.image("https://i.ibb.co/5Y3LQYc/logo-cadinho.png", width=150)  # você pode trocar depois
+    time2 = st.text_input("Time Visitante", placeholder="Fluminense")
 
-# Inputs
-esporte = st.selectbox("Escolha o esporte", ["Futebol ⚽", "Basquete (em breve)"])
-c1, c2 = st.columns(2)
-with c1:
-    time1 = st.text_input("Time da Casa", placeholder="Ex: Flamengo")
-with c2:
-    time2 = st.text_input("Time Visitante", placeholder="Ex: Fluminense")
-
-if st.button("GERAR PALPITE", use_container_width=True):
-    if not time1 or not time2 or not API_KEY:
-        st.error("Preencha os times e configure a API_KEY")
+if st.button("ANÁLISE COMPLETA + PLACAR PREVISTO", use_container_width=True):
+    if not time1 or not time2:
+        st.error("Preencha os dois times!")
     else:
-        with st.spinner("Analisando confronto direto..."):
+        with st.spinner("Carregando 13 anos de histórico..."):
             headers = {"x-apisports-key": API_KEY}
             try:
-                r1 = requests.get("https://v3.football.api-sports.io/teams", headers=headers, params={"search": time1})
-                r2 = requests.get("https://v3.football.api-sports.io/teams", headers=headers, params={"search": time2})
-                t1 = r1.json()["response"][0]["team"]
-                t2 = r2.json()["response"][0]["team"]
-
-                # H2H
-                h2h = requests.get("https://v3.football.api-sports.io/fixtures/headtohead", 
-                                 headers=headers, params={"h2h": f"{t1['id']}-{t2['id']}"}).json().get("response", [])
-
-                # Cards dos times
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.markdown(f"<div class='card'><img src='{t1['logo']}' width=100><h3>{t1['name']}</h3></div>", unsafe_allow_html=True)
-                with c2:
-                    st.markdown(f"<div class='card'><img src='{t2['logo']}' width=100><h3>{t2['name']}</h3></div>", unsafe_allow_html=True)
-
-                if h2h:
-                    v1 = v2 = empates = 0
-                    for jogo in h2h[:10]:
-                        if jogo["goals"]["home"] == jogo["goals"]["away"]:
-                            empates += 1
-                        elif (jogo["teams"]["home"]["id"] == t1["id"] and jogo["teams"]["home"]["winner"]) or \
-                             (jogo["teams"]["away"]["id"] == t1["id"] and jogo["teams"]["away"]["winner"]):
-                            v1 += 1
-                        else:
-                            v2 += 1
-
-                    total = v1 + v2 + empates
-                    p1 = round(v1/total*100, 1)
-                    p2 = round(v2/total*100, 1)
-                    pe = round(empates/total*100, 1)
-
-                    st.markdown("### ⚔️ Confronto Direto")
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric(t1["name"], f"{v1} vitórias", f"{p1}%")
-                    col2.metric("Empates", empates, f"{pe}%")
-                    col3.metric(t2["name"], f"{v2} vitórias", f"{p2}%")
-
-                    # Palpite final
-                    st.markdown("### 🎯 PALPITE OFICIAL")
-                    if p1 >= 58:
-                        palpite = f"**{t1['name']} VENCE**"
-                        confianca = "ALTA"
-                    elif p2 >= 58:
-                        palpite = f"**{t2['name']} VENCE**"
-                        confianca = "ALTA"
-                    else:
-                        palpite = "JOGO EQUILIBRADO"
-                        confianca = "MÉDIA"
-
-                    st.markdown(f"<h2 style='text-align:center; color:#00A86B;'>{palpite}</h2>", unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='text-align:center;'>Confiança: {confianca}</h3>", unsafe_allow_html=True)
-
-                    # Salva no histórico
-                    st.session_state.historico.insert(0, {
-                        "data": datetime.now().strftime("%d/%m %H:%M"),
-                        "jogo": f"{t1['name']} × {t2['name']}",
-                        "palpite": palpite.replace("**","")
-                    })
-                    st.session_state.total += 1
-                    st.balloons()
-
-                else:
-                    st.warning("Sem confrontos diretos recentes")
-
+                t1 = requests.get("https://v3.football.api-sports.io/teams", headers=headers, params={"search": time1}).json()["response"][0]["team"]
+                t2 = requests.get("https://v3.football.api-sports.io/teams", headers=headers, params={"search": time2}).json()["response"][0]["team"]
             except:
-                st.error("Time não encontrado. Tente nome mais comum (ex: Flamengo, Real Madrid)")
+                st.error("Time não encontrado. Use nome oficial (ex: Flamengo RJ)")
+                st.stop()
 
-# Contador de acertos e histórico
-st.markdown("---")
-col1, col2, col3 = st.columns(3)
-acertos = st.session_state.acertos
-total = st.session_state.total or 1
-acuracia = round(acertos/total*100, 1)
-col1.metric("Palpites dados", total)
-col2.metric("Acertos", acertos)
-col3.metric("Acurácia", f"{acuracia}%")
+            mask = df_hist["Home"].str.contains(time1, case=False, na=False) & df_hist["Away"].str.contains(time2, case=False, na=False)
+            mask |= df_hist["Away"].str.contains(time1, case=False, na=False) & df_hist["Home"].str.contains(time2, case=False, na=False)
+            h2h = df_hist[mask].tail(20)
 
-if st.session_state.historico:
-    st.markdown("### 📊 Últimos 10 palpites")
-    for item in st.session_state.historico[:10]:
-        st.markdown(f"**{item['data']}** • {item['jogo']} → {item['palpite']}")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.image(t1["logo"], width=130)
+                st.subheader(f"**{t1['name']}** (casa)")
+            with c2:
+                st.image(t2["logo"], width=130)
+                st.subheader(f"**{t2['name']}** (fora)")
 
-st.markdown("---")
-st.caption("Feito com ❤️ por Cadinho • Dados oficiais API-Sports • 100% grátis e profissional")
+            if len(h2h) > 0:
+                v1 = len(h2h[(h2h["Home"].str.contains(time1, case=False)) & (h2h["HG"] > h2h["AG"]) | 
+                            (h2h["Away"].str.contains(time1, case=False)) & (h2h["AG"] > h2h["HG"])])
+                v2 = len(h2h) - v1 - len(h2h[h2h["HG"] == h2h["AG"]])
+                emp = len(h2h[h2h["HG"] == h2h["AG"]])
+
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Vitórias casa", v1)
+                col2.metric("Empates", emp)
+                col3.metric("Vitórias fora", v2)
+                col4.metric("Total jogos", len(h2h))
+
+                # Previsão Poisson
+                lambda1 = h2h[h2h["Home"].str.contains(time1, case=False)]["HG"].mean() if any(h2h["Home"].str.contains(time1, case=False)) else 1.6
+                lambda2 = h2h[h2h["Away"].str.contains(time2, case=False)]["AG"].mean() if any(h2h["Away"].str.contains(time2, case=False)) else 1.1
+
+                probs = {f"{g1}-{g2}": round(poisson.pmf(g1, lambda1) * poisson.pmf(g2, lambda2) * 100, 1)
+                         for g1 in range(6) for g2 in range(6) if poisson.pmf(g1, lambda1) * poisson.pmf(g2, lambda2) > 0.03}
+
+                placar = max(probs, key=probs.get)
+                st.success(f"PLACAR MAIS PROVÁVEL → **{placar}** ({probs[placar]}% de chance)")
+
+                if v1 > v2 + 2:
+                    st.balloons()
+                    st.markdown("### PALPITE FINAL → **VITÓRIA DO MANDANTE**")
+                elif v2 > v1 + 2:
+                    st.markdown("### PALPITE FINAL → **VITÓRIA DO VISITANTE**")
+                else:
+                    st.markdown("### JOGO EQUILIBRADO → Olhar Over 2.5 ou BTTS")
+            else:
+                st.info("Sem histórico direto – usando apenas dados ao vivo")
+
+st.caption("© Cadinho IA 2025 – O mais completo do Brasil")
