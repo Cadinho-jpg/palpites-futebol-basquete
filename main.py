@@ -27,12 +27,12 @@ st.markdown("""
                 -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
     .stButton>button {background: linear-gradient(90deg, #FF0066, #FF3366); color: white;
                       height: 60px; font-size: 22px; font-weight: bold; border-radius: 20px;}
-    .card {background: white; padding: 20px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);}
+    .card {background: white; padding: 25px; border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.15); text-align:center;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<h1 class='big-title'>PALPITES IA DO CADINHO</h1>", unsafe_allow_html=True)
-st.markdown("<h3 style='text-align:center;color:#666;'>Base histórica 2012–2025 + placar exato ao vivo</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align:center;color:#666;'>Base histórica completa 2012–2025 + placar exato</h3>", unsafe_allow_html=True)
 
 c1, c2 = st.columns(2)
 with c1:
@@ -41,7 +41,7 @@ with c2:
     fora = st.text_input("Time Visitante", "Fluminense")
 
 if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
-    with st.spinner("Buscando 13 anos de histórico..."):
+    with st.spinner("Analisando 13 anos de Brasileirão..."):
         headers = {"x-apisports-key": API_KEY}
         try:
             t1 = requests.get("https://v3.football.api-sports.io/teams", headers=headers, params={"search": casa}).json()["response"][0]["team"]
@@ -50,21 +50,24 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
             st.error("Time não encontrado – tenta Flamengo RJ, Palmeiras, Corinthians...")
             st.stop()
 
-        # H2H = df_hist[
+        # H2H da planilha
+        H2H = df_hist[
             ((df_hist["Home"].str.contains(casa, case=False, na=False)) & (df_hist["Away"].str.contains(fora, case=False, na=False))) |
             ((df_hist["Away"].str.contains(casa, case=False, na=False)) & (df_hist["Home"].str.contains(fora, case=False, na=False)))
         ].tail(30)
 
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f"<div class='card'><img src='{t1['logo']}' width=130><h3>{t1['name']}</h3></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card'><img src='{t1['logo']}' width=140><h3>{t1['name']}</h3></div>", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"<div class='card'><img src='{t2['logo']}' width=130><h3>{t2['name']}</h3></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card'><img src='{t2['logo']}' width=140><h3>{t2['name']}</h3></div>", unsafe_allow_html=True)
 
         if len(H2H) >= 3:
-            v_casa = len(H2H[(H2H["HG"] > H2H["AG"]) & (H2H["Home"].str.contains(casa, case=False))] ) + \
-                      len(H2H[(H2H["AG"] > H2H["HG"]) & (H2H["Away"].str.contains(casa, case=False))])
-            v_fora = len(H2H) - v_casa - len(H2H[H2H["HG"] == H2H["AG"]])
+            # Vitórias
+            v_casa = len(H2H[(H2H["HG"] > H2H["AG"]) & H2H["Home"].str.contains(casa, case=False)]) + \
+                     len(H2H[(H2H["AG"] > H2H["HG"]) & H2H["Away"].str.contains(casa, case=False)])
+            v_fora = len(H2H[(H2H["HG"] < H2H["AG"]) & H2H["Home"].str.contains(casa, case=False)]) + \
+                     len(H2H[(H2H["AG"] < H2H["HG"]) & H2H["Away"].str.contains(casa, case=False)])
             empates = len(H2H[H2H["HG"] == H2H["AG"]])
 
             c1, c2, c3 = st.columns(3)
@@ -77,22 +80,22 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
             lambda_fora = H2H[H2H["Away"].str.contains(fora, case=False)]["AG"].mean() or 1.1
 
             probs = {(g1,g2): round(poisson.pmf(g1, lambda_casa) * poisson.pmf(g2, lambda_fora)*100, 1)
-                     for g1 in range(7) for g2 in range(7)}
+                     for g1 in range(0,7) for g2 in range(0,7)}
             melhor_placar = max(probs, key=probs.get)
             prob = probs[melhor_placar]
 
             st.markdown("### PLACAR MAIS PROVÁVEL")
-            st.success(f"**{melhor_placar[0]} – {melhor_placar[1]}** → {prob}% de chance")
+            st.success(f"**{melhor_placar[0]} × {melhor_placar[1]}** → {prob}% de chance")
 
-            if v_casa >= v_fora + 2:
+            if v_casa > v_fora + 1:
                 st.balloons()
                 st.markdown("### PALPITE FINAL → **VITÓRIA DO MANDANTE**")
-            elif v_fora >= v_casa + 2:
+            elif v_fora > v_casa + 1:
                 st.markdown("### PALPITE FINAL → **VITÓRIA DO VISITANTE**")
             else:
-                st.markdown("### PALPITE FINAL → **JOGO ABERTO** – olhar Over 2.5 / BTTS")
+                st.markdown("### PALPITE FINAL → **JOGO EQUILIBRADO**")
 
         else:
-            st.info("Poucos jogos diretos – usando dados ao vivo")
+            st.info("Poucos confrontos diretos – usando apenas dados ao vivo")
 
-st.caption("© Cadinho IA 2025 – O mais completo do Brasil")
+st.caption("© Cadinho IA 2025 – O mais brabo do Brasil")
