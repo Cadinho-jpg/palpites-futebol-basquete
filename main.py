@@ -50,7 +50,7 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
             st.error("Time não encontrado – tenta Flamengo RJ, Palmeiras, Corinthians...")
             st.stop()
 
-               # H2H da planilha
+        # H2H da planilha (CORRIGIDO 100%)
         h2h = df_hist[
             ((df_hist["Home"].str.contains(casa, case=False, na=False)) & (df_hist["Away"].str.contains(fora, case=False, na=False))) |
             ((df_hist["Away"].str.contains(casa, case=False, na=False)) & (df_hist["Home"].str.contains(fora, case=False, na=False)))
@@ -63,7 +63,6 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
             st.markdown(f"<div class='card'><img src='{t2['logo']}' width=140><h3>{t2['name']}</h3></div>", unsafe_allow_html=True)
 
         if len(h2h) >= 3:
-            # Vitórias corretas
             v_casa = len(h2h[(h2h["HG"] > h2h["AG"]) & h2h["Home"].str.contains(casa, case=False)]) + \
                      len(h2h[(h2h["AG"] > h2h["HG"]) & h2h["Away"].str.contains(casa, case=False)])
             v_fora = len(h2h[(h2h["HG"] < h2h["AG"]) & h2h["Home"].str.contains(casa, case=False)]) + \
@@ -75,7 +74,6 @@ if st.button("GERAR PALPITE COMPLETO", use_container_width=True):
             c2.metric("Empates", empates)
             c3.metric(f"Vitórias {fora}", v_fora)
 
-            # Poisson
             lambda_casa = h2h[h2h["Home"].str.contains(casa, case=False)]["HG"].mean() or 1.8
             lambda_fora = h2h[h2h["Away"].str.contains(fora, case=False)]["AG"].mean() or 1.1
 
